@@ -1,13 +1,13 @@
-import torch
+# models/nets.py
 
+""" Import Library """
+# Third-party library imports
+import torch
 from torch.nn import Module, Sequential, Linear, Tanh, Parameter, Embedding
 from torch.distributions import Categorical, MultivariateNormal
 
-if torch.cuda.is_available():
-    from torch.cuda import FloatTensor
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-else:
-    from torch import FloatTensor
+# Local application imports
+from utils.device_manager import get_device_manager
 
 
 class PolicyNetwork(Module):
@@ -125,9 +125,10 @@ class Expert(Module):
     def act(self, state):
         self.pi.eval()
 
-        state = FloatTensor(state)
+        dm = get_device_manager()
+        state = dm.from_numpy(state)
         distb = self.pi(state)
 
-        action = distb.sample().detach().cpu().numpy()
+        action = dm.to_numpy(distb.sample())
 
         return action

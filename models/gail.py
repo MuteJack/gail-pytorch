@@ -1,17 +1,19 @@
+# models/gail.py
+
+""" Import Library """
+# Third-party library imports
 import numpy as np
 import torch
-
 from torch.nn import Module
 
+# Local application imports
 from models.nets import PolicyNetwork, ValueNetwork, Discriminator
 from utils.funcs import get_flat_grads, get_flat_params, set_params, \
     conjugate_gradient, rescale_and_linesearch
+from utils.device_manager import get_device_manager
+from utils.logger import get_logger
 
-if torch.cuda.is_available():
-    from torch.cuda import FloatTensor
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-else:
-    from torch import FloatTensor
+logger = get_logger()
 
 
 class GAIL(Module):
@@ -40,10 +42,11 @@ class GAIL(Module):
     def act(self, state):
         self.pi.eval()
 
-        state = FloatTensor(state)
+        dm = get_device_manager()
+        state = dm.from_numpy(state)
         distb = self.pi(state)
 
-        action = distb.sample().detach().cpu().numpy()
+        action = dm.to_numpy(distb.sample())
 
         return action
 
@@ -61,6 +64,7 @@ class GAIL(Module):
 
         opt_d = torch.optim.Adam(self.d.parameters())
 
+        dm = get_device_manager()
         exp_rwd_iter = []
 
         exp_obs = []
@@ -100,16 +104,14 @@ class GAIL(Module):
             if done:
                 exp_rwd_iter.append(np.sum(ep_rwds))
 
-            ep_obs = FloatTensor(np.array(ep_obs))
-            ep_rwds = FloatTensor(ep_rwds)
+            ep_obs = dm.from_numpy(np.array(ep_obs))
+            ep_rwds = dm.tensor(ep_rwds)
 
         exp_rwd_mean = np.mean(exp_rwd_iter)
-        print(
-            "Expert Reward Mean: {}".format(exp_rwd_mean)
-        )
+        logger.info(f"Expert Reward Mean: {exp_rwd_mean:.4f}")
 
-        exp_obs = FloatTensor(np.array(exp_obs))
-        exp_acts = FloatTensor(np.array(exp_acts))
+        exp_obs = dm.from_numpy(np.array(exp_obs))
+        exp_acts = dm.from_numpy(np.array(exp_acts))
 
         rwd_iter_means = []
         for i in range(num_iters):
@@ -164,18 +166,18 @@ class GAIL(Module):
                 if done:
                     rwd_iter.append(np.sum(ep_rwds))
 
-                ep_obs = FloatTensor(np.array(ep_obs))
-                ep_acts = FloatTensor(np.array(ep_acts))
-                ep_rwds = FloatTensor(ep_rwds)
-                # ep_disc_rwds = FloatTensor(ep_disc_rwds)
-                ep_gms = FloatTensor(ep_gms)
-                ep_lmbs = FloatTensor(ep_lmbs)
+                ep_obs = dm.from_numpy(np.array(ep_obs))
+                ep_acts = dm.from_numpy(np.array(ep_acts))
+                ep_rwds = dm.tensor(ep_rwds)
+                # ep_disc_rwds = dm.tensor(ep_disc_rwds)
+                ep_gms = dm.tensor(ep_gms)
+                ep_lmbs = dm.tensor(ep_lmbs)
 
                 ep_costs = (-1) * torch.log(self.d(ep_obs, ep_acts))\
                     .squeeze().detach()
                 ep_disc_costs = ep_gms * ep_costs
 
-                ep_disc_rets = FloatTensor(
+                ep_disc_rets = dm.tensor(
                     [sum(ep_disc_costs[i:]) for i in range(t)]
                 )
                 ep_rets = ep_disc_rets / ep_gms
@@ -185,13 +187,13 @@ class GAIL(Module):
                 self.v.eval()
                 curr_vals = self.v(ep_obs).detach()
                 next_vals = torch.cat(
-                    (self.v(ep_obs)[1:], FloatTensor([[0.]]))
+                    (self.v(ep_obs)[1:], dm.zeros(1, 1))
                 ).detach()
                 ep_deltas = ep_costs.unsqueeze(-1)\
                     + gae_gamma * next_vals\
                     - curr_vals
 
-                ep_advs = FloatTensor([
+                ep_advs = dm.tensor([
                     ((ep_gms * ep_lmbs)[:t - j].unsqueeze(-1) * ep_deltas[j:])
                     .sum()
                     for j in range(t)
@@ -201,13 +203,10 @@ class GAIL(Module):
                 gms.append(ep_gms)
 
             rwd_iter_means.append(np.mean(rwd_iter))
-            print(
-                "Iterations: {},   Reward Mean: {}"
-                .format(i + 1, np.mean(rwd_iter))
-            )
+            logger.info(f"Iteration {i + 1}/{num_iters} - Reward Mean: {np.mean(rwd_iter):.4f}")
 
-            obs = FloatTensor(np.array(obs))
-            acts = FloatTensor(np.array(acts))
+            obs = dm.from_numpy(np.array(obs))
+            acts = dm.from_numpy(np.array(acts))
             rets = torch.cat(rets)
             advs = torch.cat(advs)
             gms = torch.cat(gms)

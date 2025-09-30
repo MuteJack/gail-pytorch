@@ -1,5 +1,14 @@
+# utils/funcs.py
+
+""" Import Library """
+# Third-party library imports
 import numpy as np
 import torch
+
+# Local application imports
+from utils.logger import get_logger
+
+logger = get_logger()
 
 
 def get_flat_grads(f, net):
@@ -74,5 +83,5 @@ def rescale_and_linesearch(
 
         beta *= 0.5
 
-    print("The line search was failed!")
+    logger.warning("Line search failed! Returning old parameters")
     return old_params
