@@ -12,6 +12,7 @@ from utils.funcs import get_flat_grads, get_flat_params, set_params, \
     conjugate_gradient, rescale_and_linesearch
 from utils.device_manager import get_device_manager
 from utils.logger import get_logger
+from utils.env_logger import EnvStateLogger, EnvInfoLogger
 
 logger = get_logger()
 
@@ -65,11 +66,22 @@ class GAIL(Module):
         opt_d = torch.optim.Adam(self.d.parameters())
 
         dm = get_device_manager()
+
+        # Get environment name from env object
+        env_name = getattr(env.spec, 'id', 'unknown') if hasattr(env, 'spec') and env.spec else 'unknown'
+
+        # Initialize environment loggers (always enabled, shared timestamp)
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        state_logger = EnvStateLogger(env_name=env_name, timestamp=timestamp)
+        info_logger = EnvInfoLogger(env_name=env_name, timestamp=timestamp)
+
         exp_rwd_iter = []
 
         exp_obs = []
         exp_acts = []
 
+        episode_count = 0
         steps = 0
         while steps < num_steps_per_iter:
             ep_obs = []
@@ -91,6 +103,10 @@ class GAIL(Module):
                     env.render()
                 ob, rwd, done, info = env.step(act)
 
+                # Log environment state and info
+                state_logger.log_step(ep_obs[-1], act, rwd, done)
+                info_logger.log_step(info, episode_count, steps)
+
                 ep_rwds.append(rwd)
 
                 t += 1
@@ -103,6 +119,8 @@ class GAIL(Module):
 
             if done:
                 exp_rwd_iter.append(np.sum(ep_rwds))
+                state_logger.new_episode()
+                episode_count += 1
 
             ep_obs = dm.from_numpy(np.array(ep_obs))
             ep_rwds = dm.tensor(ep_rwds)
@@ -319,5 +337,9 @@ class GAIL(Module):
             new_params += lambda_ * grad_disc_causal_entropy
 
             set_params(self.pi, new_params)
+
+        # Close environment loggers
+        state_logger.close()
+        info_logger.close()
 
         return exp_rwd_mean, rwd_iter_means

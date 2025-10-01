@@ -80,14 +80,14 @@ def setup_logger(name="GAIL", level=logging.INFO, log_dir="logs", console=True, 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         # Main log file - INFO and above
-        main_log_file = os.path.join(log_dir, f'train_{timestamp}.log')
+        main_log_file = os.path.join(log_dir, f'log_{timestamp}_info.log')
         main_handler = logging.FileHandler(main_log_file, mode='w', encoding='utf-8')
         main_handler.setLevel(logging.INFO)  # INFO (20) and above
         main_handler.setFormatter(detailed_formatter)
         logger.addHandler(main_handler)
 
         # Debug log file - Below INFO (< 20)
-        debug_log_file = os.path.join(log_dir, f'train_{timestamp}_debug.log')
+        debug_log_file = os.path.join(log_dir, f'log_{timestamp}_debug.log')
         debug_handler = logging.FileHandler(debug_log_file, mode='w', encoding='utf-8')
         debug_handler.setLevel(logging.DEBUG)
         debug_handler.addFilter(LevelFilter(0, logging.INFO - 1))  # Below INFO

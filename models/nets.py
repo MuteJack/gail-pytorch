@@ -10,19 +10,55 @@ from torch.distributions import Categorical, MultivariateNormal
 from utils.device_manager import get_device_manager
 
 
-class PolicyNetwork(Module):
-    def __init__(self, state_dim, action_dim, discrete) -> None:
-        super().__init__()
+def create_mlp(input_dim, output_dim, hidden_dim=50, num_hidden_layers=3):
+    """
+    Create a Multi-Layer Perceptron (MLP)
 
-        self.net = Sequential(
+    Args:
+        input_dim: Input dimension
+        output_dim: Output dimension
+        hidden_dim: Hidden layer dimension (default: 50)
+        num_hidden_layers: Number of hidden layers (default: 3)
+
+    Returns:
+        Sequential module containing the MLP layers
+
+    Example:
+        >>> create_mlp(state_dim, action_dim, hidden_dim=50, num_hidden_layers=3)
+        Sequential(
             Linear(state_dim, 50),
             Tanh(),
             Linear(50, 50),
             Tanh(),
             Linear(50, 50),
             Tanh(),
-            Linear(50, action_dim),
+            Linear(50, action_dim)
         )
+    """
+    layers = []
+
+    # Input layer
+    layers.append(Linear(input_dim, hidden_dim))
+    layers.append(Tanh())
+
+    # Hidden layers
+    for _ in range(num_hidden_layers - 1):
+        layers.append(Linear(hidden_dim, hidden_dim))
+        layers.append(Tanh())
+
+    # Output layer
+    layers.append(Linear(hidden_dim, output_dim))
+
+    return Sequential(*layers)
+
+
+
+""" Policy pi """
+class PolicyNetwork(Module):
+    def __init__(self, state_dim, action_dim, discrete, hidden_dim=50, num_hidden_layers=3) -> None:
+        super().__init__()
+
+        self.net = create_mlp(state_dim, action_dim, hidden_dim, num_hidden_layers)
 
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -46,26 +82,22 @@ class PolicyNetwork(Module):
         return distb
 
 
+
+""" Value V """
 class ValueNetwork(Module):
-    def __init__(self, state_dim) -> None:
+    def __init__(self, state_dim, hidden_dim=50, num_hidden_layers=3) -> None:
         super().__init__()
 
-        self.net = Sequential(
-            Linear(state_dim, 50),
-            Tanh(),
-            Linear(50, 50),
-            Tanh(),
-            Linear(50, 50),
-            Tanh(),
-            Linear(50, 1),
-        )
+        self.net = create_mlp(state_dim, 1, hidden_dim, num_hidden_layers)
 
     def forward(self, states):
         return self.net(states)
 
 
+
+""" Discriminator D """
 class Discriminator(Module):
-    def __init__(self, state_dim, action_dim, discrete) -> None:
+    def __init__(self, state_dim, action_dim, discrete, hidden_dim=50, num_hidden_layers=3) -> None:
         super().__init__()
 
         self.state_dim = state_dim
@@ -73,22 +105,12 @@ class Discriminator(Module):
         self.discrete = discrete
 
         if self.discrete:
-            self.act_emb = Embedding(
-                action_dim, state_dim
-            )
+            self.act_emb = Embedding(action_dim, state_dim)
             self.net_in_dim = 2 * state_dim
         else:
             self.net_in_dim = state_dim + action_dim
 
-        self.net = Sequential(
-            Linear(self.net_in_dim, 50),
-            Tanh(),
-            Linear(50, 50),
-            Tanh(),
-            Linear(50, 50),
-            Tanh(),
-            Linear(50, 1),
-        )
+        self.net = create_mlp(self.net_in_dim, 1, hidden_dim, num_hidden_layers)
 
     def forward(self, states, actions):
         return torch.sigmoid(self.get_logits(states, actions))
