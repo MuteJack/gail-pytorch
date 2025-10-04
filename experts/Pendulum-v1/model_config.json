@@ -1,5 +1,8 @@
 {
     "train_config": {
+        "discrete": false,
+        "hidden_dim": 50,
+        "hidden_layers": 3,
         "num_iters": 500,
         "num_steps_per_iter": 2000,
         "horizon": null,

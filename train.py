@@ -16,11 +16,12 @@ from models.nets import Expert
 from models.gail import GAIL
 from utils.device_manager import get_device
 from utils.logger import get_logger
+import env  # Register custom environments
 
 logger = get_logger()
 
 """ Global Variable """
-ENV_LIST = ["CartPole-v1", "Pendulum-v0", "BipedalWalker-v3"]
+ENV_LIST = ["CartPole-v1", "Pendulum-v1", "BipedalWalker-v3", "LongitudinalDriving-v0"]
 
 def main(env_name):
     # Directories
@@ -57,12 +58,13 @@ def main(env_name):
     env = gym.make(env_name)
     env.reset()
 
+    # State, Action Dimension & Discrete
     state_dim = len(env.observation_space.high)
-    if env_name in ["CartPole-v1"]:
-        discrete = True
+    discrete = config.get("discrete", False)  # Get discrete from config
+
+    if discrete:
         action_dim = env.action_space.n
     else:
-        discrete = False
         action_dim = env.action_space.shape[0]
 
 
@@ -72,11 +74,8 @@ def main(env_name):
     device = get_device()
 
 
-
-    """ Expert (Model) SetUp """
-    expert = Expert(
-        state_dim, action_dim, discrete, **expert_config
-    ).to(device)
+    # Load CKPT of Pre-Trained Expert
+    expert = Expert(state_dim, action_dim, discrete, **expert_config).to(device)
     expert.pi.load_state_dict(
         torch.load(
             os.path.join(expert_path, "policy.ckpt"), map_location=device
@@ -84,23 +83,22 @@ def main(env_name):
     )
 
 
-
-    """ Training Model SetUp """
-    model = GAIL(state_dim, action_dim, discrete, config).to(device)
-    results = model.train(env, expert)
-    env.close()
-
+    # Training GAIL
+    model = GAIL(state_dim, action_dim, discrete, config).to(device) # Class GAIL will start Training
+    results = model.train(env, expert) # Results of GAIL Training (When Training is End)
+    env.close() # Close Environment
 
 
-    """ End of Training """
+
+    """ End of Training (Save CheckPoint)"""
     with open(os.path.join(ckpt_path, "results.pkl"), "wb") as f:
         pickle.dump(results, f)
 
-    if hasattr(model, "pi"):
+    if hasattr(model, "pi"):    # CKPT of Policy Network
         torch.save(  model.pi.state_dict(), os.path.join(ckpt_path, "policy.ckpt")  )
-    if hasattr(model, "v"):
+    if hasattr(model, "v"):     # CKPT of Value Network(TRPO)
         torch.save(  model.v.state_dict(), os.path.join(ckpt_path, "value.ckpt")  )
-    if hasattr(model, "d"):
+    if hasattr(model, "d"):     # CKPT of Discriminator Network
         torch.save(  model.d.state_dict(), os.path.join(ckpt_path, "discriminator.ckpt")  )
 
 # EOS - End of Script
@@ -114,7 +112,7 @@ if __name__ == "__main__":
         default="CartPole-v1",
         help="Type the environment name to run. \
             The possible environments are \
-                [CartPole-v1, Pendulum-v0, BipedalWalker-v3]"
+                {ENV_LIST}}"
     )
     args = parser.parse_args()
 

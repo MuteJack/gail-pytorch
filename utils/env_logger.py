@@ -10,6 +10,7 @@ from datetime import datetime
 import numpy as np
 
 
+""" Environment State Logger """
 class EnvStateLogger:
     """
     CSV logger for environment states during training
@@ -129,6 +130,8 @@ class EnvStateLogger:
         self.close()
 
 
+
+""" Environment Info Logger """
 class EnvInfoLogger:
     """
     CSV logger for environment info dict during training
@@ -224,3 +227,5 @@ class EnvInfoLogger:
     def __del__(self):
         """Ensure file is closed on deletion"""
         self.close()
+
+# EOS - End of Script

@@ -1,7 +1,10 @@
 {
     "CartPole-v1": {
-        "num_iters": 200,
-        "num_steps_per_iter": 2000,
+        "discrete": true,
+        "hidden_dim": 50,
+        "hidden_layers": 3,
+        "num_iters": 5,
+        "num_steps_per_iter": 200,
         "horizon": null,
         "lambda": 1e-3,
         "gae_gamma": 0.99,
@@ -11,7 +14,10 @@
         "cg_damping": 0.1,
         "normalize_advantage": true
     },
-    "Pendulum-v0": {
+    "Pendulum-v1": {
+        "discrete": false,
+        "hidden_dim": 50,
+        "hidden_layers": 3,
         "num_iters": 500,
         "num_steps_per_iter": 2000,
         "horizon": null,
@@ -24,12 +30,30 @@
         "normalize_advantage": true
     },
     "BipedalWalker-v3": {
-        "num_iters": 1000,
+        "discrete": false,
+        "hidden_dim": 50,
+        "hidden_layers": 500,
+        "num_iters": 2000,
         "num_steps_per_iter": 5000,
         "horizon": null,
         "lambda": 1e-3,
         "gae_gamma": 0.99,
         "gae_lambda": 0.99,
+        "epsilon": 0.01,
+        "max_kl": 0.01,
+        "cg_damping": 0.1,
+        "normalize_advantage": true
+    },
+    "LongitudinalDriving-v0": {
+        "discrete": false,
+        "hidden_dim": 64,
+        "hidden_layers": 3,
+        "num_iters": 500,
+        "num_steps_per_iter": 2000,
+        "horizon": 1000,
+        "lambda": 1e-3,
+        "gae_gamma": 0.99,
+        "gae_lambda": 0.95,
         "epsilon": 0.01,
         "max_kl": 0.01,
         "cg_damping": 0.1,
